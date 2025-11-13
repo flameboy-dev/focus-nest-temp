@@ -1,6 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, TrendingUp, Shield, Target } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 // Mock data - will be replaced with real Supabase data
 const weeklyData = [
@@ -21,6 +24,32 @@ const categoryData = [
 ];
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const { data: daily = { productiveSeconds: 0, distractedSeconds: 0, topSites: [] }, isLoading } = useQuery({
+    queryKey: ['daily', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return { productiveSeconds: 0, distractedSeconds: 0, topSites: [] };
+      const today = new Date().toISOString().slice(0,10);
+      const { data, error } = await supabase
+        .from('time_entries')
+        .select('website, duration, productive')
+        .eq('user_id', user.id)
+        .eq('date', today);
+      if (error) throw error;
+      let productiveSeconds = 0;
+      let distractedSeconds = 0;
+      const byDomain = new Map<string, number>();
+      (data || []).forEach((row: any) => {
+        if (row.productive) productiveSeconds += row.duration; else distractedSeconds += row.duration;
+        byDomain.set(row.website, (byDomain.get(row.website) || 0) + row.duration);
+      });
+      const topSites = Array.from(byDomain.entries()).map(([site, durationSec]) => ({ _id: site, durationSec })).sort((a,b)=>b.durationSec-a.durationSec).slice(0,10);
+      return { productiveSeconds, distractedSeconds, topSites };
+    },
+    enabled: !!user?.id,
+  });
+  const totalSeconds = daily.productiveSeconds + daily.distractedSeconds;
+  const totalHours = (totalSeconds/3600).toFixed(1);
   return (
     <div className="space-y-8">
       <div>
@@ -36,8 +65,8 @@ export default function Dashboard() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">7.5 hrs</div>
-            <p className="text-xs text-muted-foreground">+2.5hrs from yesterday</p>
+            <div className="text-2xl font-bold">{isLoading ? '...' : `${totalHours} hrs`}</div>
+            <p className="text-xs text-muted-foreground">Synced from extension</p>
           </CardContent>
         </Card>
 
@@ -58,7 +87,7 @@ export default function Dashboard() {
             <Shield className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">23</div>
+            <div className="text-2xl font-bold">—</div>
             <p className="text-xs text-muted-foreground">Distractions prevented</p>
           </CardContent>
         </Card>
@@ -133,21 +162,17 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {[
-              { site: 'github.com', time: '2h 45m', category: 'Development', productive: true },
-              { site: 'stackoverflow.com', time: '1h 20m', category: 'Research', productive: true },
-              { site: 'youtube.com', time: '45m', category: 'Entertainment', productive: false },
-              { site: 'docs.google.com', time: '1h 10m', category: 'Documentation', productive: true },
-            ].map((item, i) => (
+            {isLoading && <div>Loading...</div>}
+            {!isLoading && daily.topSites.map((item: any, i: number) => (
               <div key={i} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${item.productive ? 'bg-success' : 'bg-accent'}`} />
+                  <div className={`w-2 h-2 rounded-full ${item.durationSec ? 'bg-success' : 'bg-accent'}`} />
                   <div>
-                    <p className="font-medium text-foreground">{item.site}</p>
-                    <p className="text-sm text-muted-foreground">{item.category}</p>
+                    <p className="font-medium text-foreground">{item._id}</p>
+                    <p className="text-sm text-muted-foreground">{Math.round(item.durationSec/60)}m</p>
                   </div>
                 </div>
-                <div className="text-sm font-medium text-foreground">{item.time}</div>
+                <div className="text-sm font-medium text-foreground">{Math.round(item.durationSec/60)}m</div>
               </div>
             ))}
           </div>

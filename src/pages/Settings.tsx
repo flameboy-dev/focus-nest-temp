@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -7,19 +7,61 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 
 export default function Settings() {
   const { user } = useAuth();
+  const API_BASE = null;
+  const { data: loaded, isLoading } = useQuery({
+    queryKey: ['settings', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('daily_goal, break_reminders, email_reports, sound_notifications')
+        .eq('id', user.id)
+        .single();
+      if (error) throw error;
+      return {
+        dailyGoal: data.daily_goal,
+        breakReminders: data.break_reminders,
+        emailReports: data.email_reports,
+        soundNotifications: data.sound_notifications,
+      };
+    },
+    enabled: !!user?.id,
+  });
   const [settings, setSettings] = useState({
     dailyGoal: 8,
     breakReminders: true,
     emailReports: true,
     soundNotifications: false,
   });
+  useEffect(() => {
+    if (loaded) {
+      setSettings({
+        dailyGoal: loaded.dailyGoal ?? 8,
+        breakReminders: !!loaded.breakReminders,
+        emailReports: !!loaded.emailReports,
+        soundNotifications: !!loaded.soundNotifications,
+      });
+    }
+  }, [loaded]);
 
-  const handleSave = () => {
-    // TODO: Save to Supabase
-    toast.success('Settings saved successfully');
+  const handleSave = async () => {
+    if (!user?.id) return;
+    const { error } = await supabase
+      .from('user_settings')
+      .upsert({
+        id: user.id,
+        daily_goal: settings.dailyGoal,
+        break_reminders: settings.breakReminders,
+        email_reports: settings.emailReports,
+        sound_notifications: settings.soundNotifications,
+        updated_at: new Date().toISOString(),
+      });
+    if (!error) toast.success('Settings saved successfully'); else toast.error('Failed to save settings');
   };
 
   return (
@@ -29,7 +71,7 @@ export default function Settings() {
         <p className="text-muted-foreground mt-2">Manage your preferences</p>
       </div>
 
-      <Card>
+        <Card>
         <CardHeader>
           <CardTitle>Account</CardTitle>
           <CardDescription>Your account information</CardDescription>
@@ -39,18 +81,34 @@ export default function Settings() {
             <Label>Email</Label>
             <Input value={user?.email || ''} disabled />
           </div>
+          <div className="space-y-2">
+            <Label>User ID</Label>
+            <div className="flex gap-2">
+              <Input value={user?.id || ''} disabled />
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (user?.id) navigator.clipboard.writeText(user.id);
+                  toast.success('User ID copied');
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Use this ID in the Chrome extension popup to sync time logging</p>
+          </div>
           <p className="text-sm text-muted-foreground">
             Connected to Supabase account
           </p>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+        <Card>
+          <CardHeader>
           <CardTitle>Productivity Goals</CardTitle>
           <CardDescription>Set your daily productivity targets</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </CardHeader>
+          <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="dailyGoal">Daily Time Goal (hours)</Label>
             <Input
@@ -65,12 +123,12 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+        <Card>
+          <CardHeader>
           <CardTitle>Notifications</CardTitle>
           <CardDescription>Manage how you receive updates</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+          </CardHeader>
+          <CardContent className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Break Reminders</Label>
@@ -118,7 +176,7 @@ export default function Settings() {
 
       <div className="flex justify-end">
         <Button onClick={handleSave} size="lg">
-          Save Changes
+          {isLoading ? 'Loading...' : 'Save Changes'}
         </Button>
       </div>
     </div>

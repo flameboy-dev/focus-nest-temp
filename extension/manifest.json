@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "FocusNest",
+  "version": "0.1.0",
+  "description": "Track productivity, block distracting sites, and sync data.",
+  "permissions": ["tabs", "storage", "declarativeNetRequest", "alarms"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "FocusNest" },
+  "host_permissions": ["<all_urls>"]
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FocusNest</title>
+    <style>
+      body{font-family:system-ui, sans-serif; min-width:280px; padding:12px}
+      .row{display:flex; align-items:center; justify-content:space-between; margin:8px 0}
+      button{padding:6px 10px}
+      input{width:100%; padding:6px 8px; margin-top:4px}
+      .muted{color:#666}
+    </style>
+  </head>
+  <body>
+    <div class="row"><div><strong>Focus Mode</strong></div><button id="toggle"></button></div>
+    <div class="row"><div>Today</div><div id="today" class="muted">0m</div></div>
+    <div>
+      <label>User ID</label>
+      <input id="user" placeholder="demo-user" />
+      <button id="save">Save</button>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

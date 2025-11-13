@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,40 +9,59 @@ import { Badge } from '@/components/ui/badge';
 import { Shield, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Mock data - will be replaced with real Supabase data
-const initialBlockedSites = [
-  { id: 1, url: 'facebook.com', category: 'Social Media' },
-  { id: 2, url: 'twitter.com', category: 'Social Media' },
-  { id: 3, url: 'reddit.com', category: 'Forum' },
-  { id: 4, url: 'youtube.com', category: 'Video' },
-  { id: 5, url: 'netflix.com', category: 'Entertainment' },
-];
+const API_BASE = null;
 
 export default function BlockedSites() {
-  const [blockedSites, setBlockedSites] = useState(initialBlockedSites);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: blockedSites = [], isLoading } = useQuery({
+    queryKey: ['blocklist', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('blocked_sites')
+        .select('id, url, category')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map((x: any) => ({ id: x.id, url: x.url, category: x.category }));
+    },
+    enabled: !!user?.id,
+  });
+  
+  const addMutation = useMutation({
+    mutationFn: async (payload: { url: string; category?: string }) => {
+      const { error } = await supabase
+        .from('blocked_sites')
+        .insert([{ user_id: user?.id, url: payload.url, category: payload.category || 'Custom' }]);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['blocklist', user?.id] }); },
+  });
+  const delMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('blocked_sites')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user?.id || '');
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['blocklist', user?.id] }); },
+  });
   const [newSite, setNewSite] = useState('');
 
-  const handleAddSite = () => {
-    if (!newSite.trim()) {
-      toast.error('Please enter a website URL');
-      return;
-    }
-
-    // TODO: Save to Supabase
-    const newEntry = {
-      id: Date.now(),
-      url: newSite.trim(),
-      category: 'Custom',
-    };
-
-    setBlockedSites([...blockedSites, newEntry]);
+  const handleAddSite = async () => {
+    if (!newSite.trim()) { toast.error('Please enter a website URL'); return; }
+    if (!user?.id) return;
+    await addMutation.mutateAsync({ url: newSite.trim(), category: 'Custom' });
     setNewSite('');
-    toast.success(`Blocked ${newEntry.url}`);
+    toast.success('Website blocked successfully');
   };
 
-  const handleRemoveSite = (id: number) => {
-    // TODO: Remove from Supabase
-    setBlockedSites(blockedSites.filter(site => site.id !== id));
+  const handleRemoveSite = async (id: string) => {
+    if (!user?.id) return;
+    await delMutation.mutateAsync(id);
     toast.success('Site unblocked');
   };
 
@@ -81,7 +103,8 @@ export default function BlockedSites() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {blockedSites.map((site) => (
+            {isLoading && <div>Loading...</div>}
+            {!isLoading && blockedSites.map((site) => (
               <div
                 key={site.id}
                 className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-secondary/50 transition-colors"
@@ -98,7 +121,7 @@ export default function BlockedSites() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleRemoveSite(site.id)}
+                  onClick={() => handleRemoveSite(site.id as any)}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
