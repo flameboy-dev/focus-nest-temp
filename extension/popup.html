@@ -1,25 +1,284 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>FocusNest</title>
-    <style>
-      body{font-family:system-ui, sans-serif; min-width:280px; padding:12px}
-      .row{display:flex; align-items:center; justify-content:space-between; margin:8px 0}
-      button{padding:6px 10px}
-      input{width:100%; padding:6px 8px; margin-top:4px}
-      .muted{color:#666}
-    </style>
-  </head>
-  <body>
-    <div class="row"><div><strong>Focus Mode</strong></div><button id="toggle"></button></div>
-    <div class="row"><div>Today</div><div id="today" class="muted">0m</div></div>
-    <div>
-      <label>User ID</label>
-      <input id="user" placeholder="demo-user" />
-      <button id="save">Save</button>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FocusNest</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      width: 320px;
+      background: #ffffff;
+      color: #1f2937;
+    }
+
+    .header {
+      background: #4f46e5;
+      padding: 20px;
+      text-align: center;
+      color: white;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .header p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 20px;
+    }
+
+    .toggle-section {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .toggle-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .switch {
+      position: relative;
+      width: 48px;
+      height: 24px;
+      background: #d1d5db;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s;
+      outline: none;
+    }
+
+    .switch.active {
+      background: #10b981;
+    }
+
+    .switch-handle {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .switch.active .switch-handle {
+      transform: translateX(24px);
+    }
+
+    .stats {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .stat-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .user-section {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .user-section label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      background: white;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #4f46e5;
+      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+    }
+
+    button {
+      padding: 8px 16px;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #4338ca;
+    }
+
+    button:active {
+      background: #3730a3;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #0f172a;
+        color: #e5e7eb;
+      }
+
+      .header {
+        background: #3730a3;
+      }
+
+      .toggle-section,
+      .stats,
+      .user-section {
+        background: #0b1220;
+        border-color: #1f2937;
+      }
+
+      .toggle-label,
+      .stat-label {
+        color: #9ca3af;
+      }
+
+      .stat-value {
+        color: #e5e7eb;
+      }
+
+      .switch {
+        background: #374151;
+      }
+
+      .switch.active {
+        background: #047857;
+      }
+
+      input {
+        background: #0b1220;
+        color: #e5e7eb;
+        border-color: #374151;
+      }
+
+      button {
+        background: #3730a3;
+      }
+
+      button:hover {
+        background: #312e81;
+      }
+
+      button:active {
+        background: #1e1b4b;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <h1>🎯 FocusNest</h1>
+    <p>Stay productive and focused</p>
+  </div>
+
+  <div class="content">
+    <div class="toggle-section">
+      <div class="toggle-row">
+        <span class="toggle-label">Focus Mode</span>
+        <div class="switch" id="toggle" tabindex="0" role="switch" aria-checked="false">
+          <div class="switch-handle"></div>
+        </div>
+      </div>
     </div>
-    <script src="popup.js"></script>
-  </body>
+
+    <div class="stats">
+      <div class="stat-item">
+        <span class="stat-label">Today's Focus Time</span>
+        <span class="stat-value" id="today">0m</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Server</span>
+        <span class="stat-value" id="server-status">Offline</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Active Rules</span>
+        <span class="stat-value" id="rules-count">0</span>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-item" style="align-items:flex-start;">
+        <span class="stat-label">Top Sites Today</span>
+        <div style="text-align:right; width:160px;">
+          <div class="stat-value" id="top-sites"></div>
+          <button id="refresh-sites" style="font-size:10px; padding:2px 6px; margin-top:4px;">Refresh</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="user-section">
+      <label>User ID</label>
+      <div class="input-row">
+        <input id="user" type="text" placeholder="demo-user" />
+        <button id="save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+
 </html>

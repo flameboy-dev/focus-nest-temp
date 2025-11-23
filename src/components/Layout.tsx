@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Clock, BarChart3, Shield, Settings, LogOut } from 'lucide-react';
+import { Clock, BarChart3, Shield, Settings, LogOut, Download } from 'lucide-react';
 import { NavLink } from './NavLink';
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -42,6 +42,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   >
                     <Settings className="h-4 w-4" />
                     Settings
+                  </NavLink>
+                  <NavLink
+                    to="/download-extension"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    activeClassName="text-foreground bg-secondary"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download Extension
                   </NavLink>
                 </div>
               )}
