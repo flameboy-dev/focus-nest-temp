@@ -1,29 +1,32 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Clock, TrendingUp, Shield, Target, Link } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Added Alert imports
+import { Clock, TrendingUp, Shield, Target, Link, AlertCircle } from 'lucide-react'; // Added AlertCircle
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import { getServerBase } from '@/lib/api';
 
-
-
-
-
 export default function Dashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [extensionUserId, setExtensionUserId] = useState('');
   const [isLinking, setIsLinking] = useState(false);
-  const { data: daily = { productiveSeconds: 0, distractedSeconds: 0, topSites: [] }, isLoading } = useQuery({
+
+  // Added isError and error to destructuring
+  const { data: daily = { productiveSeconds: 0, distractedSeconds: 0, topSites: [] }, isLoading, isError, error } = useQuery({
     queryKey: ['daily', user?.id],
     queryFn: async () => {
       if (!user?.id) return { productiveSeconds: 0, distractedSeconds: 0, topSites: [] };
       
       const apiBase = getServerBase();
       
+      // DEBUG LOGGING: Check the console to see this output
+      console.log('Dashboard: Connecting to server at:', apiBase);
+      console.log('Dashboard: Current Supabase User ID:', user.id);
+
       // First try to get the extension user ID mapping
       let userId = user.id;
       try {
@@ -32,20 +35,26 @@ export default function Dashboard() {
           const mappingData = await mappingResponse.json();
           if (mappingData.extensionUserId) {
             userId = mappingData.extensionUserId;
+            console.log('Dashboard: Found linked Extension ID:', userId);
+          } else {
+            console.log('Dashboard: No linked Extension ID found. Using Supabase ID.');
           }
         }
       } catch (e) {
-        console.log('No extension user mapping found, using Supabase user ID');
+        console.log('Dashboard: Failed to check for ID mapping (Server might be offline or unreachable)');
       }
       
+      console.log(`Dashboard: Fetching report for User ID: ${userId}`);
+
       // Use the same API endpoint as the extension
       const response = await fetch(`${apiBase}/api/reports/daily?userId=${encodeURIComponent(userId)}`);
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch daily report: ${response.status}`);
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
+      console.log('Dashboard: Received data:', data);
       return {
         productiveSeconds: data.productiveSeconds || 0,
         distractedSeconds: data.distractedSeconds || 0,
@@ -55,14 +64,14 @@ export default function Dashboard() {
     enabled: !!user?.id,
     refetchInterval: 30000, // Refetch every 30 seconds
   });
-  const { data: weekly = [], isLoading: weeklyLoading } = useQuery({
+
+  const { data: weekly = [] } = useQuery({
     queryKey: ['weekly', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
       const apiBase = getServerBase();
       
-      // Get the correct user ID (extension or Supabase)
       let userId = user.id;
       try {
         const mappingResponse = await fetch(`${apiBase}/api/user/extension-id?supabaseUserId=${encodeURIComponent(user.id)}`);
@@ -73,7 +82,7 @@ export default function Dashboard() {
           }
         }
       } catch (e) {
-        console.log('No extension user mapping found, using Supabase user ID');
+        // Ignore errors here to prevent double alerting
       }
       
       const dates = [];
@@ -83,7 +92,6 @@ export default function Dashboard() {
         dates.push(date.toISOString().slice(0, 10));
       }
 
-      // Fetch data for each day
       const weeklyData = await Promise.all(
         dates.map(async (date) => {
           try {
@@ -112,7 +120,7 @@ export default function Dashboard() {
       return result;
     },
     enabled: !!user?.id,
-    refetchInterval: 60000, // Refetch every minute
+    refetchInterval: 60000,
   });
 
   const categoryData = [
@@ -200,6 +208,19 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
         <p className="text-muted-foreground mt-2">Track your productivity and stay focused</p>
       </div>
+
+      {/* Error Alert for Server Connectivity */}
+      {isError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Connection Error</AlertTitle>
+          <AlertDescription>
+            Could not connect to the server at {getServerBase()}. Make sure your backend server is running (npm run server).
+            <br />
+            <span className="text-xs opacity-80">Error: {String(error)}</span>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -311,7 +332,9 @@ export default function Dashboard() {
               {!isLoading && daily.topSites.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>No activity data found.</p>
-                  <p className="text-sm mt-2">Make sure your extension is running and linked.</p>
+                  <p className="text-sm mt-2 text-orange-500 font-medium">
+                    If you see data in your extension but not here, you must link them below.
+                  </p>
                 </div>
               )}
               {!isLoading && daily.topSites.map((item, i: number) => (
@@ -331,7 +354,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Extension Linking */}
-        <Card>
+        <Card className="border-primary/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Link className="h-4 w-4" />
@@ -347,7 +370,7 @@ export default function Dashboard() {
                 </p>
                 <div className="flex gap-2">
                   <Input
-                    placeholder="e.g., 8e1a8270-4478-4c79..."
+                    placeholder="Paste ID here (e.g., demo-user)"
                     value={extensionUserId}
                     onChange={(e) => setExtensionUserId(e.target.value)}
                   />
@@ -359,12 +382,13 @@ export default function Dashboard() {
                   </Button>
                 </div>
               </div>
-              <div className="text-xs text-muted-foreground">
-                <p>To find your extension User ID:</p>
-                <ol className="list-decimal list-inside mt-1 space-y-1">
-                  <li>Click the FocusNest extension icon</li>
-                  <li>Look at the "User ID" field at the bottom</li>
-                  <li>Copy and paste it here</li>
+              <div className="text-xs text-muted-foreground bg-secondary/50 p-3 rounded-md">
+                <p className="font-medium mb-1">How to find your Extension User ID:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Click the <strong>FocusNest extension icon</strong> in Chrome</li>
+                  <li>Look for the "User ID" field at the bottom of the popup</li>
+                  <li>Copy that ID and paste it above</li>
+                  <li>Click <strong>Link</strong> to sync your data</li>
                 </ol>
               </div>
             </div>
